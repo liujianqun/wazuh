@@ -44,13 +44,15 @@ ifneq (,$(filter ${REUSE_ID},yes y Y 1))
 	DEFINES+=-DREUSE_ID
 endif
 
-OSSEC_LDFLAGS=${LDFLAGS} -L${EXTERNAL_OPENSSL} -lm -lssl -lcrypto
+OSSEC_LDFLAGS=-L${EXTERNAL_OPENSSL} -L${EXTERNAL_ZLIB} -L${EXTERNAL_SQLITE} -L${EXTERNAL_JSON} -lsqlite3 -lcJSON -lm -lssl -lcrypto -lz ${LDFLAGS}
 
 ifneq (${TARGET},winagent)
 ifeq (${uname_S},Linux)
 		DEFINES+=-DINOTIFY_ENABLED -D_XOPEN_SOURCE=600 -D_GNU_SOURCE
 #		DEFINES+=-DUSE_MAGIC
+		OSSEC_LDFLAGS+=-L${EXTERNAL_PROCPS} -lproc
 		OSSEC_LDFLAGS+=-pthread -lrt -ldl
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 #		OSSEC_LDFLAGS+=-lmagic
 		CFLAGS+=-Wl,--start-group
 else
@@ -59,6 +61,7 @@ ifeq (${uname_S},AIX)
 		DEFINES+=-DHIGHFIRST
 		PATH:=${PATH}:/usr/vac/bin
 		OSSEC_LDFLAGS+=-pthread
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 		CFLAGS+=-Wl,--start-group
 		CC=gcc
 else
@@ -70,6 +73,7 @@ ifeq (${uname_S},SunOS)
 		OSSEC_LDFLAGS+=-Wl,--end-group
 		OSSEC_LDFLAGS+=-z relax=secadj
 		OSSEC_LDFLAGS+=-lsocket -lnsl -lresolv
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 		LUA_PLAT=solaris
 		PATH:=${PATH}:/usr/ccs/bin:/usr/xpg4/bin:/opt/csw/gcc3/bin:/opt/csw/bin:/usr/sfw/bin
 		CC=gcc
@@ -80,6 +84,7 @@ ifeq (${uname_S},Darwin)
 		DEFINES+=-DDarwin
 		DEFINES+=-DHIGHFIRST
 		LUA_PLAT=macosx
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 
 else
 ifeq (${uname_S},FreeBSD)
@@ -88,10 +93,12 @@ ifeq (${uname_S},FreeBSD)
 		LUA_PLAT=freebsd
 		CFLAGS+=-I/usr/local/include -Wl,--start-group
 		OSSEC_LDFLAGS+=-L/usr/local/lib
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 else
 ifeq (${uname_S},NetBSD)
 		DEFINES+=-DNetBSD
 		OSSEC_LDFLAGS+=-pthread
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 		CFLAGS+=-Wl,--start-group
 		LUA_PLAT=posix
 else
@@ -101,6 +108,7 @@ ifeq (${uname_S},OpenBSD)
 		LUA_PLAT=posix
 		CFLAGS+=-I/usr/local/include -Wl,--start-group
 		OSSEC_LDFLAGS+=-L/usr/local/lib
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 else
 ifeq (${uname_S},HP-UX)
 		DEFINES+=-DHPUX
@@ -110,6 +118,7 @@ ifeq (${uname_S},HP-UX)
 		DEFINES+=-DOS_BIG_ENDIAN
 		LUA_PLAT=posix
 		OSSEC_LDFLAGS+=-pthread -lrt
+		OSSEC_LDFLAGS+=-Wl,-rpath,${PREFIX}/lib
 		PATH:=${PATH}:/usr/local/bin
 		CC=gcc
 		INSTALL=/usr/local/coreutils/bin/install
@@ -209,6 +218,7 @@ endif #winagent
 
 OSSEC_CC      =${QUIET_CC}${MING_BASE}${CC}
 OSSEC_CCBIN   =${QUIET_CCBIN}${MING_BASE}${CC}
+OSSEC_SHARED  =${QUIET_LINK}${MING_BASE}${CC} -shared
 OSSEC_LINK    =${QUIET_LINK}${MING_BASE}ar -crus
 OSSEC_RANLIB  =${QUIET_RANLIB}${MING_BASE}ranlib
 OSSEC_WINDRES =${QUIET_CCBIN}${MING_BASE}windres
@@ -481,14 +491,14 @@ agent: external
 	${MAKE} ${BUILD_AGENT}
 
 
-WINDOWS_BINS:=win32/ossec-agent.exe win32/ossec-agent-eventchannel.exe win32/ossec-rootcheck.exe win32/manage_agents.exe win32/setup-windows.exe win32/setup-syscheck.exe win32/setup-iis.exe win32/add-localfile.exe win32/os_win32ui.exe win32/agent-auth.exe
+WINDOWS_BINS:=win32/ossec-agent.exe win32/ossec-agent-eventchannel.exe win32/ossec-rootcheck.exe win32/manage_agents.exe win32/setup-windows.exe win32/setup-syscheck.exe win32/setup-iis.exe win32/add-localfile.exe win32/os_win32ui.exe win32/agent-auth.exe wazuh_modules/syscollector/syscollector_win_ext.dll win32/libwinpthread-1.dll
 
 ifeq (${MAKECMDGOALS},winagent)
 $(error Do not use 'winagent' directly, use 'TARGET=winagent')
 endif
 .PHONY: winagent
-winagent: ${EXTERNAL_OPENSSL}libssl.a ${EXTERNAL_ZLIB}libz.a win32/libwinpthread-1.dll wazuh_modules/syscollector/syscollector_win_ext.dll
-	${MAKE} ${WINDOWS_BINS} CFLAGS="-DCLIENT -D_POSIX_C_SOURCE -DWIN32 -I./${EXTERNAL_ZLIB} -pthread" LDFLAGS="-lwsock32 -lwevtapi -lshlwapi -lcomctl32 -pthread -ladvapi32 -lgdi32 -liphlpapi -lws2_32"
+winagent: ${EXTERNAL_OPENSSL}libssl.a ${EXTERNAL_OPENSSL}libcrypto.a ${EXTERNAL_ZLIB}libz.a ${EXTERNAL_JSON}libcJSON.a ${EXTERNAL_SQLITE}libsqlite3.a
+	${MAKE} ${WINDOWS_BINS} CFLAGS="-DCLIENT -D_POSIX_C_SOURCE -DWIN32 -I./${EXTERNAL_ZLIB} -pthread" LDFLAGS="-Wl,-rpath=. -lwsock32 -lwevtapi -lshlwapi -lcomctl32 -pthread -ladvapi32 -lgdi32 -liphlpapi -lws2_32"
 	cd ${EXTERNAL_LUA}src/ && ${MAKE} CC=${MING_BASE}${CC} -f Makefile.mingw mingw
 	cp ${EXTERNAL_LUA}src/ossec-lua.exe win32/
 	cp ${EXTERNAL_LUA}src/ossec-luac.exe win32/
@@ -511,10 +521,14 @@ win32/libwinpthread-1.dll: ${WIN_PTHREAD_LIB}
 ####################
 
 .PHONY: external lua
-ifeq (${uname_S},Linux)
-external: libcJSON.a ${EXTERNAL_ZLIB}libz.a lua ${EXTERNAL_OPENSSL}libssl.a ${EXTERNAL_OPENSSL}libcrypto.a libproc.a
+ifeq (${TARGET},winagent)
+external: ${EXTERNAL_JSON}libcJSON.a ${EXTERNAL_ZLIB}libz.a lua ${EXTERNAL_OPENSSL}libssl.a ${EXTERNAL_OPENSSL}libcrypto.a ${EXTERNAL_SQLITE}libsqlite3.a
 else
-external: libcJSON.a ${EXTERNAL_ZLIB}libz.a lua ${EXTERNAL_OPENSSL}libssl.a ${EXTERNAL_OPENSSL}libcrypto.a
+ifeq (${uname_S},Linux)
+external: ${EXTERNAL_JSON}libcJSON.so ${EXTERNAL_ZLIB}libz.so lua ${EXTERNAL_OPENSSL}libssl.so ${EXTERNAL_OPENSSL}libcrypto.so ${EXTERNAL_SQLITE}libsqlite3.so ${EXTERNAL_PROCPS}libproc.so
+else
+external: ${EXTERNAL_JSON}libcJSON.so ${EXTERNAL_ZLIB}libz.so lua ${EXTERNAL_OPENSSL}libssl.so ${EXTERNAL_OPENSSL}libcrypto.so ${EXTERNAL_SQLITE}libsqlite3.so
+endif
 endif
 
 lua:
@@ -522,33 +536,34 @@ lua:
 
 #### OpenSSL ##########
 
+ifeq (${TARGET},winagent)
 OPENSSL_LIB=${EXTERNAL_OPENSSL}libssl.a
 CRYPTO_LIB=${EXTERNAL_OPENSSL}libcrypto.a
-
-${CRYPTO_LIB}: ${OPENSSL_LIB}
-ifeq (${TARGET},winagent)
-	${OSSEC_RANLIB} ${CRYPTO_LIB}
+else
+OPENSSL_LIB=${EXTERNAL_OPENSSL}libssl.so
+CRYPTO_LIB=${EXTERNAL_OPENSSL}libcrypto.so
 endif
+
+$(CRYPTO_LIB): $(OPENSSL_LIB)
 
 ${OPENSSL_LIB}:
 ifeq (${TARGET},winagent)
 	cd ${EXTERNAL_OPENSSL} && CC=${MING_BASE}${CC} ./Configure mingw && ${MAKE} build_libs
-	${OSSEC_RANLIB} ${OPENSSL_LIB}
 else
 ifeq (${uname_S},Darwin)
-	cd ${EXTERNAL_OPENSSL} && ./Configure darwin64-x86_64-cc && ${MAKE} build_libs
+	cd ${EXTERNAL_OPENSSL} && ./Configure darwin64-x86_64-cc shared -Wl,-rpath,${PREFIX}/lib && ${MAKE} build_libs
 else
 ifeq (${uname_S},HP-UX)
-	cd ${EXTERNAL_OPENSSL} && MAKE=gmake ./Configure hpux-ia64-gcc && ${MAKE} build_libs
+	cd ${EXTERNAL_OPENSSL} && MAKE=gmake ./Configure hpux-ia64-gcc shared -Wl,-rpath,${PREFIX}/lib && ${MAKE} build_libs
 else
 ifeq (${uname_S},SunOS)
 ifeq ($(uname_M),i86pc)
-	cd ${EXTERNAL_OPENSSL} && ./Configure solaris-x86-gcc && ${MAKE} build_libs
+	cd ${EXTERNAL_OPENSSL} && ./Configure solaris-x86-gcc shared -Wl,-rpath,${PREFIX}/lib && ${MAKE} build_libs
 else
-	cd ${EXTERNAL_OPENSSL} && ./Configure solaris-sparcv9-gcc && ${MAKE} build_libs
+	cd ${EXTERNAL_OPENSSL} && ./Configure solaris-sparcv9-gcc shared -Wl,-rpath,${PREFIX}/lib && ${MAKE} build_libs
 endif
 else
-	cd ${EXTERNAL_OPENSSL} && ./config && ${MAKE} build_libs
+	cd ${EXTERNAL_OPENSSL} && ./config shared -Wl,-rpath,${PREFIX}/lib && ${MAKE} build_libs
 endif
 endif
 endif
@@ -556,40 +571,44 @@ endif
 
 #### zlib ##########
 
-${EXTERNAL_ZLIB}libz.a:
+
 ifeq (${TARGET},winagent)
+${EXTERNAL_ZLIB}libz.a:
 	cd ${EXTERNAL_ZLIB} && cp zconf.h.in zconf.h && ${MAKE} -f win32/Makefile.gcc PREFIX=${MING_BASE} libz.a
 else
-	cd ${EXTERNAL_ZLIB} && ./configure && ${MAKE} libz.a
+${EXTERNAL_ZLIB}libz.so:
+	cd ${EXTERNAL_ZLIB} && ./configure && ${MAKE}
 endif
 
-ZLIB_LIB=os_zlib.a ${EXTERNAL_ZLIB}libz.a
 ZLIB_INCLUDE=-I./${EXTERNAL_ZLIB}
 
 os_zlib_c := os_zlib/os_zlib.c
 os_zlib_o := $(os_zlib_c:.c=.o)
 
-os_zlib/%.o: os_zlib/%.c ${EXTERNAL_ZLIB}libz.a
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $< -o $@
+os_zlib/%.o: os_zlib/%.c
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $< -o $@
 
 os_zlib.a: ${os_zlib_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
-
+libos_z.so: ${os_zlib_o}
+	${OSSEC_SHARED} -o $@ $^
 
 #### cJSON #########
 
-JSON_LIB=libcJSON.a
 JSON_INCLUDE=-I./${EXTERNAL_JSON}
 
 cjson_c := ${EXTERNAL_JSON}cJSON.c
 cjson_o := $(cjson_c:.c=.o)
 
 ${EXTERNAL_JSON}%.o: ${EXTERNAL_JSON}%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
-libcJSON.a: ${cjson_o}
+${EXTERNAL_JSON}libcJSON.so: ${cjson_o}
+	${OSSEC_SHARED} -o $@ $^
+
+${EXTERNAL_JSON}libcJSON.a: ${cjson_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
@@ -603,11 +622,10 @@ procps_c := $(wildcard ${EXTERNAL_PROCPS}*.c)
 procps_o := $(procps_c:.c=.o)
 
 ${EXTERNAL_PROCPS}%.o: ${EXTERNAL_PROCPS}%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -w -fPIC -c $^ -o $@
 
-libproc.a: ${procps_o}
-	${OSSEC_LINK} $@ $^
-	${OSSEC_RANLIB} $@
+${EXTERNAL_PROCPS}libproc.so: ${procps_o}
+	${OSSEC_SHARED} -o $@ $^
 endif
 endif
 
@@ -615,19 +633,26 @@ endif
 #### OSSEC Libs ####
 ####################
 
-ossec_libs = config.a wmodules.a os_crypto.a shared.a os_net.a os_regex.a os_xml.a ${JSON_LIB} ${OPENSSL_LIB} ${CRYPTO_LIB} ${PROCPS_LIB}
 
+ifneq (${TARGET},winagent)
+ossec_libs = libconfig.so libwmodules.so libos_crypto.so libshared.so libos_net.so libos_regex.so libos_xml.so libos_z.so
+else
+ossec_libs = config.a wmodules.a os_crypto.a shared.a os_net.a os_regex.a os_xml.a os_zlib.a
+endif
 #### os_xml ########
 
 os_xml_c := $(wildcard os_xml/*.c)
 os_xml_o := $(os_xml_c:.c=.o)
 
 os_xml/%.o: os_xml/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 os_xml.a: ${os_xml_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
+
+libos_xml.so: ${os_xml_o}
+	${OSSEC_SHARED} -o $@ $^
 
 
 #### os_regex ######
@@ -636,11 +661,14 @@ os_regex_c := $(wildcard os_regex/*.c)
 os_regex_o := $(os_regex_c:.c=.o)
 
 os_regex/%.o: os_regex/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 os_regex.a: ${os_regex_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
+
+libos_regex.so: ${os_regex_o}
+	${OSSEC_SHARED} -o $@ $^
 
 #### os_net ##########
 
@@ -648,11 +676,14 @@ os_net_c := $(wildcard os_net/*.c)
 os_net_o := $(os_net_c:.c=.o)
 
 os_net/%.o: os_net/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 os_net.a: ${os_net_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
+
+libos_net.so: ${os_net_o}
+	${OSSEC_SHARED} -o $@ $^
 
 #### Shared ##########
 
@@ -660,16 +691,19 @@ shared_c := $(wildcard shared/*.c)
 shared_o := $(shared_c:.c=.o)
 
 shared/%.o: shared/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-remoted\" -pthread -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-remoted\" -pthread -fPIC -c $^ -o $@
 
 shared.a: ${shared_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
+libshared.so: ${shared_o}
+	${OSSEC_SHARED} -o $@ $^
+
 #### Wazuh DB ####
 
 wdb_sql := $(wildcard wazuh_db/*.sql)
-wdblib_c := $(wildcard wazuh_db/wdb*.c) ${EXTERNAL_SQLITE}sqlite3.c
+wdblib_c := $(wildcard wazuh_db/wdb*.c)
 wdblib_o := $(wdblib_c:.c=.o) $(wdb_sql:.sql=.o)
 wdb_o := wazuh_db/main.o $(wdblib_o:.c=.o) $(wdb_c:.c=.o) $(wdb_sql:.sql=.o)
 
@@ -677,7 +711,14 @@ wazuh_db/schema_%.o: wazuh_db/schema_%.sql
 	${QUIET_CC}echo 'const char *'$(word 2, $(subst /, ,$(subst .,_,$<))) '= "'"`cat $< | tr -d \"\n\"`"'";' | ${MING_BASE}${CC} ${OSSEC_CFLAGS} -xc -c -o $@ -
 
 wazuh_db/%.o: wazuh_db/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"wazuh-db\" -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"wazuh-db\" -fPIC -c $^ -o $@
+
+${EXTERNAL_SQLITE}libsqlite3.so: ${EXTERNAL_SQLITE}sqlite3.o
+	${OSSEC_SHARED} -o $@ $^
+
+${EXTERNAL_SQLITE}libsqlite3.a: ${EXTERNAL_SQLITE}sqlite3.o
+	${OSSEC_LINK} $@ $^
+	${OSSEC_RANLIB} $@
 
 ${EXTERNAL_SQLITE}sqlite3.o: ${EXTERNAL_SQLITE}sqlite3.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -w -c $^ -o $@ -fPIC
@@ -696,21 +737,24 @@ endif
 wmodules_o := $(wmodules_c:.c=.o)
 
 wazuh_modules/%.o: wazuh_modules/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -pthread -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -pthread -c $^ -o $@
 
 ifeq (${TARGET},winagent)
-wazuh_modules/syscollector/syscollector_win_ext.dll: wazuh_modules/syscollector/syscollector_win_ext.o ${JSON_LIB}
-	${OSSEC_CC} -pipe -O2 -shared -o $@ $^ -liphlpapi -lws2_32
+wazuh_modules/syscollector/syscollector_win_ext.dll: wazuh_modules/syscollector/syscollector_win_ext.o
+	${OSSEC_CC} -pipe -O2 -shared -o $@ $^ -liphlpapi -lws2_32 -L${EXTERNAL_JSON} -lcJSON
 endif # DLL for Windows
 
 ifndef DISABLE_SYSC
 wazuh_modules/syscollector/%.o: wazuh_modules/syscollector/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -pthread -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -pthread -c $^ -o $@
 endif
 
 wmodules.a: ${wmodules_o} ${wdblib_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
+
+libwmodules.so: ${wmodules_o} ${wdblib_o}
+	${OSSEC_SHARED} -o $@ $^
 
 #### Config ##########
 
@@ -718,11 +762,14 @@ config_c := $(wildcard config/*.c)
 config_o := $(config_c:.c=.o)
 
 config/%.o: config/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 config.a: ${config_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
+
+libconfig.so: ${config_o}
+	${OSSEC_SHARED} -o $@ $^
 
 #### crypto ##########
 
@@ -730,43 +777,43 @@ crypto_blowfish_c := os_crypto/blowfish/bf_op.c
 crypto_blowfish_o := $(crypto_blowfish_c:.c=.o)
 
 os_crypto/blowfish/%.o: os_crypto/blowfish/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 crypto_md5_c := os_crypto/md5/md5_op.c
 crypto_md5_o := $(crypto_md5_c:.c=.o)
 
 os_crypto/md5/%.o: os_crypto/md5/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 crypto_sha1_c := os_crypto/sha1/sha1_op.c
 crypto_sha1_o := $(crypto_sha1_c:.c=.o)
 
 os_crypto/sha1/%.o: os_crypto/sha1/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 crypto_md5_sha1_c := os_crypto/md5_sha1/md5_sha1_op.c
 crypto_md5_sha1_o := $(crypto_md5_sha1_c:.c=.o)
 
 os_crypto/md5_sha1/%.o: os_crypto/md5_sha1/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 crypto_hmac_c := os_crypto/hmac/hmac.c
 crypto_hmac_o := $(crypto_hmac_c:.c=.o)
 
 os_crypto/hmac/%.o: os_crypto/hmac/%.c
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $^ -o $@
 
 crypto_shared_c := $(wildcard os_crypto/shared/*.c)
 crypto_shared_o := $(crypto_shared_c:.c=.o)
 
-os_crypto/shared/%.o: os_crypto/shared/%.c ${ZLIB_LIB}
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $< -o $@
+os_crypto/shared/%.o: os_crypto/shared/%.c
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $< -o $@
 
 crypto_signature_c := $(wildcard os_crypto/signature/*.c)
 crypto_signature_o := $(crypto_signature_c:.c=.o)
 
-os_crypto/signature/%.o: os_crypto/signature/%.c ${ZLIB_LIB}
-	${OSSEC_CC} ${OSSEC_CFLAGS} -c $< -o $@
+os_crypto/signature/%.o: os_crypto/signature/%.c
+	${OSSEC_CC} ${OSSEC_CFLAGS} -fPIC -c $< -o $@
 
 
 crypto_o := ${crypto_blowfish_o} \
@@ -781,6 +828,9 @@ os_crypto.a: ${crypto_o}
 	${OSSEC_LINK} $@ $^
 	${OSSEC_RANLIB} $@
 
+libos_crypto.so: ${crypto_o}
+	${OSSEC_SHARED} -o $@ $^
+
 
 #### os_mail #########
 
@@ -790,7 +840,7 @@ os_maild_o := $(os_maild_c:.c=.o)
 os_maild/%.o: os_maild/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-maild\" -c $^ -o $@
 
-ossec-maild: ${os_maild_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-maild: ${os_maild_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### os_dbd ##########
@@ -801,7 +851,7 @@ os_dbd_o := $(os_dbd_c:.c=.o)
 os_dbd/%.o: os_dbd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} ${MI} ${PI} -DARGV0=\"ossec-dbd\" -c $^ -o $@
 
-ossec-dbd: ${os_dbd_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-dbd: ${os_dbd_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${MI} ${PI} ${JSON_INCLUDE} $^ -lm ${OSSEC_LDFLAGS} -o $@
 
 
@@ -813,7 +863,7 @@ os_csyslogd_o := $(os_csyslogd_c:.c=.o)
 os_csyslogd/%.o: os_csyslogd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} ${JSON_INCLUDE} -DARGV0=\"ossec-csyslogd\" -c $^ -o $@
 
-ossec-csyslogd: ${os_csyslogd_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-csyslogd: ${os_csyslogd_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${JSON_INCLUDE} $^ -lm ${OSSEC_LDFLAGS} -o $@
 
 
@@ -825,7 +875,7 @@ os_agentlessd_o := $(os_agentlessd_c:.c=.o)
 agentlessd/%.o: agentlessd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-agentlessd\" -c $^ -o $@
 
-ossec-agentlessd: ${os_agentlessd_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-agentlessd: ${os_agentlessd_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### os_execd #####
@@ -836,7 +886,7 @@ os_execd_o := $(os_execd_c:.c=.o)
 os_execd/%.o: os_execd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-execd\" -c $^ -o $@
 
-ossec-execd: ${os_execd_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-execd: ${os_execd_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${JSON_INCLUDE} $^ -lm ${OSSEC_LDFLAGS} -o $@
 
 
@@ -852,7 +902,7 @@ logcollector/%.o: logcollector/%.c
 logcollector/%-event.o: logcollector/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DEVENTCHANNEL_SUPPORT -DARGV0=\"ossec-logcollector\" -c $^ -o $@
 
-ossec-logcollector: ${os_logcollector_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-logcollector: ${os_logcollector_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### remoted #########
@@ -863,7 +913,7 @@ remoted_o := $(remoted_c:.c=.o)
 remoted/%.o: remoted/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./remoted ${ZLIB_INCLUDE} -DARGV0=\"ossec-remoted\" -c $^ -o $@
 
-ossec-remoted: ${remoted_o} ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB} ${ZLIB_LIB}
+ossec-remoted: ${remoted_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### ossec-agentd ####
@@ -874,7 +924,7 @@ client_agent_o := $(client_agent_c:.c=.o)
 client-agent/%.o: client-agent/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./client-agent ${ZLIB_INCLUDE} -DARGV0=\"ossec-agentd\" -c $^ -o $@
 
-ossec-agentd: ${client_agent_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o ${ZLIB_LIB} ${JSON_LIB}
+ossec-agentd: ${client_agent_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### addagent ######
@@ -886,7 +936,7 @@ addagent/%.o: addagent/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./addagent ${ZLIB_INCLUDE} -DARGV0=\"manage_agents\" -c $^ -o $@
 
 
-manage_agents: ${addagent_o} ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+manage_agents: ${addagent_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} ${JSON_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### Util ##########
@@ -902,28 +952,28 @@ util_o := $(util_c:.c=.o)
 util/%.o: util/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -I./util ${ZLIB_INCLUDE} -DARGV0=\"utils\" -c $^ -o $@
 
-syscheck_update: util/syscheck_update.o addagent/validate.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+syscheck_update: util/syscheck_update.o addagent/validate.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} ${JSON_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-clear_stats: util/clear_stats.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+clear_stats: util/clear_stats.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-list_agents: util/list_agents.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+list_agents: util/list_agents.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-verify-agent-conf: util/verify-agent-conf.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+verify-agent-conf: util/verify-agent-conf.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-agent_control: util/agent_control.o addagent/validate.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+agent_control: util/agent_control.o addagent/validate.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} ${JSON_INCLUDE} $^ -lm ${OSSEC_LDFLAGS} -o $@
 
-syscheck_control: util/syscheck_control.o addagent/validate.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+syscheck_control: util/syscheck_control.o addagent/validate.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} ${JSON_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-rootcheck_control: util/rootcheck_control.o addagent/validate.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+rootcheck_control: util/rootcheck_control.o addagent/validate.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} ${JSON_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
-ossec-regex: util/ossec-regex.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-regex: util/ossec-regex.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### rootcheck #####
@@ -950,7 +1000,7 @@ rootcheck.a: ${rootcheck_o_lib}
 #	@echo ${rootcheck_o_cmd}
 #	@echo ${rootcheck_o_lib}
 #	@echo ${rootcheck_o}
-#	${OSSEC_CC} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} rootcheck/rootcheck-config.o rootcheck.a rootcheck/rootcheck.c ${ZLIB_LIB} ${ossec_libs}  -o $@
+#	${OSSEC_CC} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} rootcheck/rootcheck-config.o rootcheck.a rootcheck/rootcheck.c ${ossec_libs}  -o $@
 
 #### syscheck ######
 
@@ -961,7 +1011,7 @@ syscheck_o := $(syscheck_c:.c=.o)
 syscheckd/%.o: syscheckd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-syscheckd\" -c $^ -o $@
 
-ossec-syscheckd: ${syscheck_o} rootcheck.a ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-syscheckd: ${syscheck_o} rootcheck.a ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 #### Monitor #######
@@ -969,10 +1019,10 @@ ossec-syscheckd: ${syscheck_o} rootcheck.a ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
 monitor_c := $(wildcard monitord/*.c)
 monitor_o := $(monitor_c:.c=.o)
 
-monitord/%.o: monitord/%.c ${ZLIB_LIB}
+monitord/%.o: monitord/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-monitord\" -c $< -o $@
 
-ossec-monitord: ${monitor_o} ${ossec_libs} os_maild/sendcustomemail.o ${ZLIB_LIB} ${JSON_LIB}
+ossec-monitord: ${monitor_o} ${ossec_libs} os_maild/sendcustomemail.o
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${ZLIB_INCLUDE} $^ ${OSSEC_LDFLAGS} -o $@
 
 
@@ -984,7 +1034,7 @@ report_o := $(report_c:.c=.o)
 reportd/%.o: reportd/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DARGV0=\"ossec-reportd\" -c $^ -o $@
 
-ossec-reportd: ${report_o} ${ossec_libs} ${JSON_LIB}
+ossec-reportd: ${report_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 
@@ -996,10 +1046,10 @@ os_auth_o := $(os_auth_c:.c=.o)
 os_auth/%.o: os_auth/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -pthread -I./os_auth -DARGV0=\"ossec-authd\" -c $^ -o $@
 
-agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+agent-auth: addagent/validate.o os_auth/main-client.o os_auth/ssl.o os_auth/check_cert.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${JSON_INCLUDE} -I./os_auth $^ ${OSSEC_LDFLAGS} -o $@
 
-ossec-authd: addagent/validate.o os_auth/main-server.o os_auth/local-server.o os_auth/ssl.o os_auth/check_cert.o os_auth/config.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-authd: addagent/validate.o os_auth/main-server.o os_auth/local-server.o os_auth/ssl.o os_auth/check_cert.o os_auth/config.o ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} ${JSON_INCLUDE} -I./os_auth $^ ${OSSEC_LDFLAGS} -o $@
 
 #### integratord #####
@@ -1010,7 +1060,7 @@ integrator_o := $(integrator_c:.c=.o)
 os_integrator/%.o: os_integrator/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS}  -I./os_integrator -DARGV0=\"ossec-integratord\" -c $^ -o $@
 
-ossec-integratord: ${integrator_o} ${ossec_libs} ${JSON_LIB} ${ZLIB_LIB}
+ossec-integratord: ${integrator_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} -I./os_integrator $^ ${OSSEC_LDFLAGS} -o $@
 
 #### analysisd #####
@@ -1109,13 +1159,13 @@ analysisd/%-test.o: analysisd/%.c analysisd/compiled_rules/compiled_rules.h
 	${OSSEC_CC} ${OSSEC_CFLAGS} -DTESTRULE -DARGV0=\"ossec-analysisd\" -I./analysisd -c $< -o $@
 
 
-ossec-logtest: ${analysisd_test_o} ${output_o} ${format_o} analysisd/testrule-test.o analysisd/analysisd-test.o alerts.a cdb.a decoders-test.a ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-logtest: ${analysisd_test_o} ${output_o} ${format_o} analysisd/testrule-test.o analysisd/analysisd-test.o alerts.a cdb.a decoders-test.a ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} -DTESTRULE $^ ${OSSEC_LDFLAGS} -o $@
 
-ossec-analysisd: ${analysisd_live_o} analysisd/analysisd-live.o ${output_o} ${format_o} alerts.a cdb.a decoders-live.a ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-analysisd: ${analysisd_live_o} analysisd/analysisd-live.o ${output_o} ${format_o} alerts.a cdb.a decoders-live.a ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-ossec-makelists: analysisd/makelists-live.o ${analysisd_live_o} ${format_o} alerts.a cdb.a decoders-live.a ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+ossec-makelists: analysisd/makelists-live.o ${analysisd_live_o} ${format_o} alerts.a cdb.a decoders-live.a ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 ### wazuh-modulesd ##
@@ -1123,7 +1173,7 @@ ossec-makelists: analysisd/makelists-live.o ${analysisd_live_o} ${format_o} aler
 wmodulesd_c := wazuh_modules/main.c
 wmodulesd_o := $(wmodulesd_c:.c=.o)
 
-wazuh-modulesd: ${wmodulesd_o} ${EXTERNAL_SQLITE}sqlite3.o ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB} ${PROCPS_LIB}
+wazuh-modulesd: ${wmodulesd_o} ${ossec_libs}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 ### wazuh-framework ##
@@ -1164,7 +1214,7 @@ test_o := $(test_c:.c=.o)
 tests/%.o: tests/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -c $^ -o $@
 
-test_os_zlib: tests/test_os_zlib.o ${ZLIB_LIB}
+test_os_zlib: tests/test_os_zlib.o
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 test_os_xml: tests/test_os_xml.o ${os_xml_o}
@@ -1173,13 +1223,13 @@ test_os_xml: tests/test_os_xml.o ${os_xml_o}
 test_os_regex: tests/test_os_regex.c ${os_regex_o}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-test_os_crypto: tests/test_os_crypto.c ${crypto_o} ${shared_o} ${os_xml_o} ${os_net_o} ${os_regex_o} ${ZLIB_LIB} ${JSON_LIB}
+test_os_crypto: tests/test_os_crypto.c ${crypto_o} ${shared_o} ${os_xml_o} ${os_net_o} ${os_regex_o}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-test_os_net: tests/test_os_net.c ${os_net_o} ${shared_o} ${os_regex_o} ${os_xml_o} ${JSON_LIB}
+test_os_net: tests/test_os_net.c ${os_net_o} ${shared_o} ${os_regex_o} ${os_xml_o}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-test_shared: tests/test_shared.c ${shared_o} ${os_xml_o} ${os_net_o} ${os_regex_o} ${JSON_LIB}
+test_shared: tests/test_shared.c ${shared_o} ${os_xml_o} ${os_net_o} ${os_regex_o}
 	${OSSEC_CCBIN} ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 test_valgrind: build_tests
@@ -1229,19 +1279,19 @@ win32_ui_o := $(win32_ui_c:.c=.o)
 win32/ui/%.o: win32/ui/%.c
 	${OSSEC_CC} ${OSSEC_CFLAGS} -UOSSECHIDS -DARGV0=\"ossec-win32ui\" -c $^ -o $@
 
-win32/ossec-agent.exe: win32/icon.o win32/win_agent.o win32/win_service.o ${syscheck_o} ${rootcheck_o} $(filter-out wazuh_modules/main.o, ${wmodulesd_o}) $(filter-out client-agent/main.o, $(filter-out client-agent/agentd.o, $(filter-out client-agent/event-forward.o, ${client_agent_o}))) $(filter-out logcollector/main.o, ${os_logcollector_o}) ${os_execd_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o ${ZLIB_LIB} ${JSON_LIB}
+win32/ossec-agent.exe: win32/icon.o win32/win_agent.o win32/win_service.o ${syscheck_o} ${rootcheck_o} $(filter-out wazuh_modules/main.o, ${wmodulesd_o}) $(filter-out client-agent/main.o, $(filter-out client-agent/agentd.o, $(filter-out client-agent/event-forward.o, ${client_agent_o}))) $(filter-out logcollector/main.o, ${os_logcollector_o}) ${os_execd_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o
 	${OSSEC_CCBIN} -DARGV0=\"ossec-agent\" -DOSSECHIDS ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-win32/ossec-agent-eventchannel.exe: win32/icon.o win32/win_agent.o win32/win_service.o ${syscheck_o} ${rootcheck_o} $(filter-out wazuh_modules/main.o, ${wmodulesd_o}) $(filter-out client-agent/main.o, $(filter-out client-agent/agentd.o, $(filter-out client-agent/event-forward.o, ${client_agent_o}))) $(filter-out logcollector/main-event.o, ${os_logcollector_eventchannel_o}) ${os_execd_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o ${ZLIB_LIB} ${JSON_LIB}
+win32/ossec-agent-eventchannel.exe: win32/icon.o win32/win_agent.o win32/win_service.o ${syscheck_o} ${rootcheck_o} $(filter-out wazuh_modules/main.o, ${wmodulesd_o}) $(filter-out client-agent/main.o, $(filter-out client-agent/agentd.o, $(filter-out client-agent/event-forward.o, ${client_agent_o}))) $(filter-out logcollector/main-event.o, ${os_logcollector_eventchannel_o}) ${os_execd_o} ${ossec_libs} monitord/rotate_log.o monitord/compress_log.o
 	${OSSEC_CCBIN} -DARGV0=\"ossec-agent\" -DOSSECHIDS -DEVENTCHANNEL_SUPPORT ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-win32/ossec-rootcheck.exe: win32/icon.o win32/win_service_rk.o ${rootcheck_rk_o} ${ossec_libs} ${JSON_LIB}
+win32/ossec-rootcheck.exe: win32/icon.o win32/win_service_rk.o ${rootcheck_rk_o} ${ossec_libs}
 	${OSSEC_CCBIN} -DARGV0=\"ossec-rootcheck\" ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-win32/manage_agents.exe: win32/win_service_rk.o ${addagent_o} ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+win32/manage_agents.exe: win32/win_service_rk.o ${addagent_o} ${ossec_libs}
 	${OSSEC_CCBIN} -DARGV0=\"manage-agents\" -DMA ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
-win32/setup-windows.exe: win32/win_service_rk.o win32/setup-win.o win32/setup-shared.o ${ossec_libs} ${JSON_LIB}
+win32/setup-windows.exe: win32/win_service_rk.o win32/setup-win.o win32/setup-shared.o ${ossec_libs}
 	${OSSEC_CCBIN} -DARGV0=\"setup-windows\" ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -o $@
 
 win32/setup-syscheck.exe: win32/setup-syscheck.o win32/setup-shared.o ${ossec_libs}
@@ -1256,10 +1306,10 @@ win32/add-localfile.exe: win32/add-localfile.o ${ossec_libs}
 win32/resource.o: win32/ui/win32ui.rc
 	${OSSEC_WINDRES} -i $< -o $@
 
-win32/os_win32ui.exe: win32/resource.o win32/win_service_rk.o ${win32_ui_o} addagent/b64.o ${ossec_libs} ${JSON_LIB}
+win32/os_win32ui.exe: win32/resource.o win32/win_service_rk.o ${win32_ui_o} addagent/b64.o ${ossec_libs}
 	${OSSEC_CCBIN} -DARGV0=\"ossec-win32ui\" ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -mwindows -o $@
 
-win32/agent-auth.exe: win32/win_service_rk.o win32/agent_auth.c addagent/validate.c ${ossec_libs} ${ZLIB_LIB} ${JSON_LIB}
+win32/agent-auth.exe: win32/win_service_rk.o win32/agent_auth.c addagent/validate.c ${ossec_libs}
 	${OSSEC_CCBIN} -DARGV0=\"agent-auth\" -DOSSECHIDS ${OSSEC_CFLAGS} $^ ${OSSEC_LDFLAGS} -lshlwapi -lwsock32 -lsecur32 -flto -o $@
 
 ####################
@@ -1275,24 +1325,25 @@ clean-test:
 	find . -name "*.gcda" -exec rm {} \;
 
 clean-external:
-	rm -f ${cjson_o} libcJSON.a
+	rm -f ${cjson_o} ${EXTERNAL_JSON}libcJSON.so ${EXTERNAL_JSON}libcJSON.a
+	rm -f ${EXTERNAL_SQLITE}sqlite3.o ${EXTERNAL_SQLITE}libsqlite3.a ${EXTERNAL_SQLITE}libsqlite3.so
 	cd ${EXTERNAL_ZLIB} && ${MAKE} -f Makefile.in distclean
 	rm -f ${EXTERNAL_ZLIB}/Makefile ${EXTERNAL_ZLIB}/zconf.h
 	cd ${EXTERNAL_LUA} && ${MAKE} clean
 	-cd ${EXTERNAL_OPENSSL} && ${MAKE} distclean
 	rm -f ${OPENSSL_LIB}
 	rm -f ${CRYPTO_LIB}
-	rm -f ${procps_o} libproc.a
+	rm -f ${procps_o} ${EXTERNAL_PROCPS}libproc.so
 
 clean-internals:
-	rm -f ${os_zlib_o} os_zlib.a
-	rm -f ${os_xml_o} os_xml.a
-	rm -f ${os_regex_o} os_regex.a
-	rm -f ${os_net_o} os_net.a
-	rm -f ${shared_o} shared.a
-	rm -f ${config_o} config.a
+	rm -f ${os_zlib_o} os_zlib.a libos_z.so
+	rm -f ${os_xml_o} os_xml.a libos_xml.so
+	rm -f ${os_regex_o} os_regex.a libos_regex.so
+	rm -f ${os_net_o} os_net.a libos_net.so
+	rm -f ${shared_o} shared.a libshared.so
+	rm -f ${config_o} config.a libconfig.so
 	rm -f ${os_maild_o} ossec-maild
-	rm -f ${crypto_o} os_crypto.a
+	rm -f ${crypto_o} os_crypto.a libos_crypto.so
 	rm -f ${os_csyslogd_o} ossec-csyslogd
 	rm -f ${os_dbd_o} ossec-dbd
 	rm -f ${os_agentlessd_o} ossec-agentlessd
@@ -1310,7 +1361,7 @@ clean-internals:
 	rm -f ${all_analysisd_o} ${all_analysisd_libs} analysisd/compiled_rules/compiled_rules.h
 	rm -f ossec-logtest ossec-analysisd ossec-makelists
 	rm -f ${integrator_o} ossec-integratord
-	rm -f ${wmodulesd_o} ${wmodules_o} wazuh-modulesd wmodules.a
+	rm -f ${wmodulesd_o} ${wmodules_o} wazuh-modulesd wmodules.a libwmodules.so
 	rm -f ${wdb_o} wazuh-db
 
 clean-framework:

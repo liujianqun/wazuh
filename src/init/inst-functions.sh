@@ -639,6 +639,22 @@ InstallCommon(){
         ${INSTALL} -d -m 0750 -o root -g ${OSSEC_GROUP} ${PREFIX}/bin
     fi
 
+  ${INSTALL} -d -m 0750 -o root -g 0 ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/openssl/libssl.so.1.0.0 ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/openssl/libcrypto.so.1.0.0 ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/zlib/libz.so.1.2.11 ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libos_z.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/sqlite/libsqlite3.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/cJSON/libcJSON.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 external/procps/libproc.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libconfig.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libwmodules.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libos_crypto.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libshared.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libos_net.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libos_regex.so ${PREFIX}/lib
+  ${INSTALL} -m 0750 -o root -g 0 libos_xml.so ${PREFIX}/lib
+
   ${INSTALL} -d -m 0750 -o root -g 0 ${PREFIX}/lua
   ${INSTALL} -d -m 0750 -o root -g 0 ${PREFIX}/lua/native
   ${INSTALL} -d -m 0750 -o root -g 0 ${PREFIX}/lua/compiled

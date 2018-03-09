@@ -11,11 +11,12 @@
 #include "execd.h"
 
 char ** wcom_ca_store;
+int is_disabled;
 
 /* Read the config file */
 int ExecdConfig(const char *cfgfile)
 {
-    int is_disabled = 0;
+    is_disabled = 0;
 
     const char *(xmlf[]) = {"ossec_config", "active-response", "disabled", NULL};
     const char *(blocks[]) = {"ossec_config", "active-response", "repeated_offenders", NULL};
@@ -105,4 +106,32 @@ int ExecdConfig(const char *cfgfile)
     OS_ClearXML(&xml);
 
     return (is_disabled);
+}
+
+
+cJSON *getARConfig(void) {
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON *ar = cJSON_CreateObject();
+    unsigned int i;
+
+    if (is_disabled) cJSON_AddStringToObject(ar,"disabled","yes"); else cJSON_AddStringToObject(ar,"disabled","no");
+    if (wcom_ca_store) {
+        cJSON *calist = cJSON_CreateArray();
+        for (i=0;wcom_ca_store[i];i++) {
+            cJSON_AddItemToArray(calist,cJSON_CreateString(wcom_ca_store[i]));
+        }
+        cJSON_AddItemToObject(ar,"ca_store",calist);
+    }
+    if (*repeated_offenders_timeout) {
+        cJSON *rot = cJSON_CreateArray();
+        for (i=0;repeated_offenders_timeout[i];i++) {
+            cJSON_AddItemToArray(rot,cJSON_CreateNumber(repeated_offenders_timeout[i]));
+        }
+        cJSON_AddItemToObject(ar,"repeated_offenders",rot);
+    }
+
+    cJSON_AddItemToObject(root,"active-response",ar);
+
+    return root;
 }

@@ -130,4 +130,12 @@ int wm_sendmsg(int usec, int queue, const char *message, const char *locmsg, cha
 // Returns 0 if absolute, 1 if relative or -1 on error.
 int wm_relative_path(const char * path);
 
+#ifndef WIN32
+// Com request thread dispatcher
+void * wmcom_main(void * arg);
+#endif
+
+size_t wmcom_dispatch(char *command, size_t length __attribute__ ((unused)), char *output);
+size_t wmcom_getconfig(const char * section, char * output);
+
 #endif // W_MODULES

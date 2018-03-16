@@ -151,7 +151,7 @@ int Read_Localfile(XML_NODE node, void *d1, __attribute__((unused)) void *d2)
                 logf[pl].ign = atoi(node[i]->content);
             }
         } else if (strcmp(node[i]->element, xml_localfile_location) == 0) {
-        #ifdef WIN32
+#ifdef WIN32
             /* Expand variables on Windows */
             if (strchr(node[i]->content, '%')) {
                 int expandreturn = 0;
@@ -167,7 +167,7 @@ int Read_Localfile(XML_NODE node, void *d1, __attribute__((unused)) void *d2)
                     os_strdup(newfile, node[i]->content);
                 }
             }
-        #endif
+#endif
 
             /* This is a glob*
              * We will call this file multiple times until
@@ -256,9 +256,9 @@ int Read_Localfile(XML_NODE node, void *d1, __attribute__((unused)) void *d2)
 
                 globfree(&g);
             } else if (strchr(node[i]->content, '%'))
-            #else
+#else
             if (strchr(node[i]->content, '%'))
-            #endif /* WIN32 */
+#endif /* WIN32 */
 
             /* We need the format file (based on date) */
             {

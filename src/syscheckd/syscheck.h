@@ -74,9 +74,8 @@ const char* get_group(int gid);
 #ifndef WIN32
 // Com request thread dispatcher
 void * syscom_main(void * arg);
-#endif
-
 size_t syscom_dispatch(char *command, size_t length __attribute__ ((unused)), char *output);
 size_t syscom_getconfig(const char * section, char * output);
+#endif
 
 #endif

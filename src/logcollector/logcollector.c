@@ -91,7 +91,6 @@ void LogCollectorStart()
             win_startel(logff[i].file);
 
 #endif
-            logff[i].file = NULL;
             logff[i].command = NULL;
             logff[i].fp = NULL;
         }
@@ -107,8 +106,6 @@ void LogCollectorStart()
 #endif
 
 #endif
-
-            logff[i].file = NULL;
             logff[i].command = NULL;
             logff[i].fp = NULL;
         }

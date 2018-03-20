@@ -23,7 +23,7 @@
 
 /* Global config */
 extern syscheck_config syscheck;
-extern int debug_level;
+extern int sys_debug_level;
 
 /** Function Prototypes **/
 

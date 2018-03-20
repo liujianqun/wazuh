@@ -16,7 +16,7 @@
 #include "rootcheck/rootcheck.h"
 
 syscheck_config syscheck;
-int debug_level;
+int sys_debug_level;
 
 #ifdef USE_MAGIC
 #include <magic.h>
@@ -49,12 +49,13 @@ static void read_internal(int debug_level)
     syscheck.tsleep = (unsigned int) getDefine_Int("syscheck", "sleep", 0, 64);
     syscheck.sleep_after = getDefine_Int("syscheck", "sleep_after", 1, 9999);
     syscheck.rt_delay = getDefine_Int("syscheck", "rt_delay", 1, 1000);
+    sys_debug_level = getDefine_Int("syscheck", "debug", 0, 2);
 
     /* Check current debug_level
      * Command line setting takes precedence
      */
     if (debug_level == 0) {
-        debug_level = getDefine_Int("syscheck", "debug", 0, 2);
+        int debug_level = sys_debug_level;
         while (debug_level != 0) {
             nowDebug();
             debug_level--;
@@ -185,7 +186,7 @@ __attribute__((noreturn)) static void help_syscheckd()
 int main(int argc, char **argv)
 {
     int c, r;
-    debug_level = 0;
+    int debug_level = 0;
     int test_config = 0, run_foreground = 0;
     const char *cfg = DEFAULTCPATH;
     gid_t gid;

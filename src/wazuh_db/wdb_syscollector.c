@@ -17,20 +17,20 @@ int wdb_osinfo_save(wdb_t * wdb, const char * scan_id, const char * scan_time, c
     sqlite3_stmt *stmt = NULL;
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_osinfo_save(): cannot begin transaction");
+        mdebug1("at wdb_osinfo_save(): cannot begin transaction");
         return -1;
     }
 
     /* Delete old OS information before insert the new scan */
     if (wdb_stmt_cache(wdb, WDB_STMT_OSINFO_DEL) > 0) {
-        merror("at wdb_osinfo_save(): cannot cache statement");
+        mdebug1("at wdb_osinfo_save(): cannot cache statement");
         return -1;
     }
 
     stmt = wdb->stmt[WDB_STMT_OSINFO_DEL];
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        merror("Unable to delete old information from 'sys_osinfo' table.");
+        merror("Deleting old information from 'sys_osinfo' table: %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
@@ -50,7 +50,6 @@ int wdb_osinfo_save(wdb_t * wdb, const char * scan_id, const char * scan_time, c
         release,
         version) < 0) {
 
-        mdebug1("at wdb_osinfo_save(): cannot insert osinfo tuple.");
         return -1;
     }
 
@@ -62,7 +61,7 @@ int wdb_osinfo_insert(wdb_t * wdb, const char * scan_id, const char * scan_time,
     sqlite3_stmt *stmt = NULL;
 
     if (wdb_stmt_cache(wdb, WDB_STMT_OSINFO_INSERT) > 0) {
-        merror("at wdb_osinfo_insert(): cannot cache statement");
+        mdebug1("at wdb_osinfo_insert(): cannot cache statement");
         return -1;
     }
 
@@ -87,17 +86,53 @@ int wdb_osinfo_insert(wdb_t * wdb, const char * scan_id, const char * scan_time,
         return 0;
     }
     else {
-        mdebug1("at wdb_osinfo_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
+        merror("at wdb_osinfo_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
+}
+
+// Function to restore the 'sys_osinfo' table for an agent
+int wdb_osinfo_restore(wdb_t * wdb) {
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (!wdb->transaction && wdb_begin2(wdb) < 0){
+        mdebug1("at wdb_osinfo_restore(): cannot begin transaction");
+        return -1;
+    }
+
+    // Try to drop the table
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_OSINFO_DROP) > 0) {
+        mdebug1("at wdb_osinfo_restore(): cannot cache statement (1)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_OSINFO_DROP];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        mdebug2("Unable to drop 'sys_osinfo' table: %s", sqlite3_errmsg(wdb->db));
+    }
+
+    // Create the table again
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_OSINFO_CREATE) > 0) {
+        mdebug1("at wdb_osinfo_restore(): cannot cache statement (2)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_OSINFO_CREATE];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to recreate 'sys_osinfo' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    return 0;
 }
 
 // Function to save Program info into the DB. Return 0 on success or -1 on error.
 int wdb_program_save(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * format, const char * name, const char * vendor, const char * version, const char * architecture, const char * description) {
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_program_save(): cannot begin transaction");
+        mdebug1("at wdb_program_save(): cannot begin transaction");
         return -1;
     }
 
@@ -111,7 +146,6 @@ int wdb_program_save(wdb_t * wdb, const char * scan_id, const char * scan_time, 
         architecture,
         description) < 0) {
 
-        mdebug1("at wdb_program_save(): cannot insert program tuple.");
         return -1;
     }
 
@@ -123,7 +157,7 @@ int wdb_program_insert(wdb_t * wdb, const char * scan_id, const char * scan_time
     sqlite3_stmt *stmt = NULL;
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PROGRAM_INSERT) > 0) {
-        merror("at wdb_program_insert(): cannot cache statement");
+        mdebug1("at wdb_program_insert(): cannot cache statement");
         return -1;
     }
 
@@ -142,7 +176,7 @@ int wdb_program_insert(wdb_t * wdb, const char * scan_id, const char * scan_time
         return 0;
     }
     else {
-        mdebug1("at wdb_program_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
+        merror("at wdb_program_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
@@ -154,12 +188,12 @@ int wdb_program_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_stmt *stmt = NULL;
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_program_delete(): cannot begin transaction");
+        mdebug1("at wdb_program_delete(): cannot begin transaction");
         return -1;
     }
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PROGRAM_DEL) > 0) {
-        merror("at wdb_program_delete(): cannot cache statement");
+        mdebug1("at wdb_program_delete(): cannot cache statement");
         return -1;
     }
 
@@ -168,7 +202,55 @@ int wdb_program_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_bind_text(stmt, 1, scan_id, -1, NULL);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        merror("Unable to delete old information from 'sys_programs' table.");
+        merror("Unable to delete old information from 'sys_programs' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    return 0;
+}
+
+// Function to restore the 'sys_programs' table for an agent
+int wdb_program_restore(wdb_t * wdb) {
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (!wdb->transaction && wdb_begin2(wdb) < 0){
+        mdebug1("at wdb_program_restore(): cannot begin transaction");
+        return -1;
+    }
+
+    // Try to drop the table
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROGRAM_DROP) > 0) {
+        mdebug1("at wdb_program_restore(): cannot cache statement (1)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROGRAM_DROP];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        mdebug2("Unable to drop 'sys_programs' table: %s", sqlite3_errmsg(wdb->db));
+    }
+
+    // Create the table again
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROGRAM_CREATE) > 0) {
+        mdebug1("at wdb_program_restore(): cannot cache statement (2)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROGRAM_CREATE];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to recreate 'sys_programs' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    // Create the index
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROGRAM_INDEX) > 0) {
+        mdebug1("at wdb_program_restore(): cannot cache statement (3)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROGRAM_INDEX];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to create index for 'sys_programs' table: %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
@@ -181,20 +263,20 @@ int wdb_hardware_save(wdb_t * wdb, const char * scan_id, const char * scan_time,
     sqlite3_stmt *stmt = NULL;
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_hardware_save(): cannot begin transaction");
+        mdebug1("at wdb_hardware_save(): cannot begin transaction");
         return -1;
     }
 
     /* Delete old OS information before insert the new scan */
     if (wdb_stmt_cache(wdb, WDB_STMT_HWINFO_DEL) > 0) {
-        merror("at wdb_hardware_save(): cannot cache statement");
+        mdebug1("at wdb_hardware_save(): cannot cache statement");
         return -1;
     }
 
     stmt = wdb->stmt[WDB_STMT_HWINFO_DEL];
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        merror("Unable to delete old information from 'sys_hwinfo' table.");
+        merror("Deleting old information from 'sys_hwinfo' table: %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
@@ -208,7 +290,6 @@ int wdb_hardware_save(wdb_t * wdb, const char * scan_id, const char * scan_time,
         ram_total,
         ram_free) < 0) {
 
-        mdebug1("at wdb_hardware_save(): cannot insert hardware tuple.");
         return -1;
     }
 
@@ -220,7 +301,7 @@ int wdb_hardware_insert(wdb_t * wdb, const char * scan_id, const char * scan_tim
     sqlite3_stmt *stmt = NULL;
 
     if (wdb_stmt_cache(wdb, WDB_STMT_HWINFO_INSERT) > 0) {
-        merror("at wdb_hardware_insert(): cannot cache statement");
+        mdebug1("at wdb_hardware_insert(): cannot cache statement");
         return -1;
     }
 
@@ -255,16 +336,52 @@ int wdb_hardware_insert(wdb_t * wdb, const char * scan_id, const char * scan_tim
         return 0;
     }
     else {
-        mdebug1("at wdb_hardware_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
+        merror("at wdb_hardware_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
+}
+
+// Function to restore the 'sys_hwinfo' table for an agent
+int wdb_hwinfo_restore(wdb_t * wdb) {
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (!wdb->transaction && wdb_begin2(wdb) < 0){
+        mdebug1("at wdb_hwinfo_restore(): cannot begin transaction");
+        return -1;
+    }
+
+    // Try to drop the table
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_HWINFO_DROP) > 0) {
+        mdebug2("at wdb_hwinfo_restore(): cannot cache statement (1)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_HWINFO_DROP];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        mdebug1("Unable to drop 'sys_hwinfo' table: %s", sqlite3_errmsg(wdb->db));
+    }
+
+    // Create the table again
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_HWINFO_CREATE) > 0) {
+        mdebug1("at wdb_hwinfo_restore(): cannot cache statement (2)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_HWINFO_CREATE];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to recreate 'sys_hwinfo' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    return 0;
 }
 
 // Function to save Port info into the DB. Return 0 on success or -1 on error.
 int wdb_port_save(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * protocol, const char * local_ip, int local_port, const char * remote_ip, int remote_port, int tx_queue, int rx_queue, int inode, const char * state, int pid, const char * process) {
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_port_save(): cannot begin transaction");
+        mdebug1("at wdb_port_save(): cannot begin transaction");
         return -1;
     }
 
@@ -283,7 +400,6 @@ int wdb_port_save(wdb_t * wdb, const char * scan_id, const char * scan_time, con
         pid,
         process) < 0) {
 
-        mdebug1("at wdb_port_save(): cannot insert port tuple.");
         return -1;
     }
 
@@ -295,7 +411,7 @@ int wdb_port_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, c
     sqlite3_stmt *stmt = NULL;
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PORT_INSERT) > 0) {
-        merror("at wdb_port_insert(): cannot cache statement");
+        mdebug1("at wdb_port_insert(): cannot cache statement");
         return -1;
     }
 
@@ -350,7 +466,7 @@ int wdb_port_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, c
         return 0;
     }
     else {
-        mdebug1("at wdb_port_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
+        merror("at wdb_port_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 }
@@ -361,12 +477,12 @@ int wdb_port_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_stmt *stmt = NULL;
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_port_delete(): cannot begin transaction");
+        mdebug1("at wdb_port_delete(): cannot begin transaction");
         return -1;
     }
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PORT_DEL) > 0) {
-        merror("at wdb_port_delete(): cannot cache statement");
+        mdebug1("at wdb_port_delete(): cannot cache statement");
         return -1;
     }
 
@@ -375,7 +491,55 @@ int wdb_port_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_bind_text(stmt, 1, scan_id, -1, NULL);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        merror("Unable to delete old information from 'sys_ports' table.");
+        merror("Deleting old information from 'sys_ports' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    return 0;
+}
+
+// Function to restore the 'sys_ports' table for an agent
+int wdb_port_restore(wdb_t * wdb) {
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (!wdb->transaction && wdb_begin2(wdb) < 0){
+        mdebug1("at wdb_port_restore(): cannot begin transaction");
+        return -1;
+    }
+
+    // Try to drop the table
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PORT_DROP) > 0) {
+        mdebug1("at wdb_port_restore(): cannot cache statement (1)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PORT_DROP];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        mdebug2("Unable to drop 'sys_ports' table: %s", sqlite3_errmsg(wdb->db));
+    }
+
+    // Create the table again
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PORT_CREATE) > 0) {
+        mdebug1("at wdb_port_restore(): cannot cache statement (2)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PORT_CREATE];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to recreate 'sys_ports' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    // Create the index
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PORT_INDEX) > 0) {
+        mdebug1("at wdb_port_restore(): cannot cache statement (3)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PORT_INDEX];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to create index for 'sys_port' table: %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 
@@ -386,7 +550,7 @@ int wdb_port_delete(wdb_t * wdb, const char * scan_id) {
 int wdb_process_save(wdb_t * wdb, const char * scan_id, const char * scan_time, int pid, const char * name, const char * state, int ppid, int utime, int stime, const char * cmd, const char * argvs, const char * euser, const char * ruser, const char * suser, const char * egroup, const char * rgroup, const char * sgroup, const char * fgroup, int priority, int nice, int size, int vm_size, int resident, int share, int start_time, int pgrp, int session, int nlwp, int tgid, int tty, int processor) {
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_process_save(): cannot begin transaction");
+        mdebug1("at wdb_process_save(): cannot begin transaction");
         return -1;
     }
 
@@ -422,7 +586,6 @@ int wdb_process_save(wdb_t * wdb, const char * scan_id, const char * scan_time, 
         tty,
         processor) < 0) {
 
-        mdebug1("at wdb_process_save(): cannot insert process tuple.");
         return -1;
     }
 
@@ -434,7 +597,7 @@ int wdb_process_insert(wdb_t * wdb, const char * scan_id, const char * scan_time
     sqlite3_stmt *stmt = NULL;
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PROC_INSERT) > 0) {
-        merror("at wdb_process_insert(): cannot cache statement");
+        mdebug1("at wdb_process_insert(): cannot cache statement");
         return -1;
     }
 
@@ -526,7 +689,7 @@ int wdb_process_insert(wdb_t * wdb, const char * scan_id, const char * scan_time
         return 0;
     }
     else {
-        mdebug1("at wdb_process_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
+        merror("at wdb_process_insert(): sqlite3_step(): %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 }
@@ -537,12 +700,12 @@ int wdb_process_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_stmt *stmt = NULL;
 
     if (!wdb->transaction && wdb_begin2(wdb) < 0){
-        merror("at wdb_process_delete(): cannot begin transaction");
+        mdebug1("at wdb_process_delete(): cannot begin transaction");
         return -1;
     }
 
     if (wdb_stmt_cache(wdb, WDB_STMT_PROC_DEL) > 0) {
-        merror("at wdb_process_delete(): cannot cache statement");
+        mdebug1("at wdb_process_delete(): cannot cache statement");
         return -1;
     }
 
@@ -551,7 +714,55 @@ int wdb_process_delete(wdb_t * wdb, const char * scan_id) {
     sqlite3_bind_text(stmt, 1, scan_id, -1, NULL);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-        merror("Unable to delete old information from 'sys_processes' table.");
+        merror("Deleting old information from 'sys_processes' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    return 0;
+}
+
+// Function to restore the 'sys_processes' table for an agent
+int wdb_process_restore(wdb_t * wdb) {
+
+    sqlite3_stmt *stmt = NULL;
+
+    if (!wdb->transaction && wdb_begin2(wdb) < 0){
+        mdebug1("at wdb_process_restore(): cannot begin transaction");
+        return -1;
+    }
+
+    // Try to drop the table
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROCESS_DROP) > 0) {
+        mdebug1("at wdb_process_restore(): cannot cache statement (1)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROCESS_DROP];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        mdebug2("Unable to drop 'sys_processes' table: %s", sqlite3_errmsg(wdb->db));
+    }
+
+    // Create the table again
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROCESS_CREATE) > 0) {
+        mdebug1("at wdb_process_restore(): cannot cache statement (2)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROCESS_CREATE];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to recreate 'sys_processes' table: %s", sqlite3_errmsg(wdb->db));
+        return -1;
+    }
+
+    // Create the index
+
+    if (wdb_stmt_cache(wdb, WDB_STMT_PROCESS_INDEX) > 0) {
+        mdebug1("at wdb_process_restore(): cannot cache statement (3)");
+        return -1;
+    }
+    stmt = wdb->stmt[WDB_STMT_PROCESS_INDEX];
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        merror("Unable to create index for 'sys_processes' table: %s", sqlite3_errmsg(wdb->db));
         return -1;
     }
 

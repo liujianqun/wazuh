@@ -52,7 +52,20 @@
 #define WDB_STMT_PORT_DEL 11
 #define WDB_STMT_PROC_INSERT 12
 #define WDB_STMT_PROC_DEL 13
-#define WDB_STMT_SIZE 14
+#define WDB_STMT_OSINFO_DROP 14
+#define WDB_STMT_OSINFO_CREATE 15
+#define WDB_STMT_HWINFO_DROP 16
+#define WDB_STMT_HWINFO_CREATE 17
+#define WDB_STMT_PROGRAM_DROP 18
+#define WDB_STMT_PROGRAM_CREATE 19
+#define WDB_STMT_PROGRAM_INDEX 20
+#define WDB_STMT_PORT_DROP 21
+#define WDB_STMT_PORT_CREATE 22
+#define WDB_STMT_PORT_INDEX 23
+#define WDB_STMT_PROCESS_DROP 24
+#define WDB_STMT_PROCESS_CREATE 25
+#define WDB_STMT_PROCESS_INDEX 26
+#define WDB_STMT_SIZE 27
 
 typedef struct wdb_t {
     sqlite3 * db;
@@ -224,11 +237,17 @@ int wdb_osinfo_insert(wdb_t * wdb, const char * scan_id, const char * scan_time,
 // Save OS info into DB.
 int wdb_osinfo_save(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * hostname, const char * architecture, const char * os_name, const char * os_version, const char * os_codename, const char * os_major, const char * os_minor, const char * os_build, const char * os_platform, const char * sysname, const char * release, const char * version);
 
+// Function to restore the 'sys_osinfo' table for an agent
+int wdb_osinfo_restore(wdb_t * wdb);
+
 // Insert HW info tuple. Return 0 on success or -1 on error.
 int wdb_hardware_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * serial, const char * cpu_name, int cpu_cores, const char * cpu_mhz, long ram_total, long ram_free);
 
 // Save HW info into DB.
 int wdb_hardware_save(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * serial, const char * cpu_name, int cpu_cores, const char * cpu_mhz, long ram_total, long ram_free);
+
+// Function to restore the 'sys_hwinfo' table for an agent
+int wdb_hwinfo_restore(wdb_t * wdb);
 
 // Insert program info tuple. Return 0 on success or -1 on error.
 int wdb_program_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * format, const char * name, const char * vendor, const char * version, const char * architecture, const char * description);
@@ -239,14 +258,20 @@ int wdb_program_save(wdb_t * wdb, const char * scan_id, const char * scan_time, 
 // Delete Program info about previous scan from DB.
 int wdb_program_delete(wdb_t * wdb, const char * scan_id);
 
-// Insert program info tuple. Return 0 on success or -1 on error.
+// Function to restore the 'sys_programs' table for an agent
+int wdb_program_restore(wdb_t * wdb);
+
+// Insert process info tuple. Return 0 on success or -1 on error.
 int wdb_process_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, int pid, const char * name, const char * state, int ppid, int utime, int stime, const char * cmd, const char * argvs, const char * euser, const char * ruser, const char * suser, const char * egroup, const char * rgroup, const char * sgroup, const char * fgroup, int priority, int nice, int size, int vm_size, int resident, int share, int start_time, int pgrp, int session, int nlwp, int tgid, int tty, int processor);
 
-// Save Program info into DB.
+// Save process info into DB.
 int wdb_process_save(wdb_t * wdb, const char * scan_id, const char * scan_time, int pid, const char * name, const char * state, int ppid, int utime, int stime, const char * cmd, const char * argvs, const char * euser, const char * ruser, const char * suser, const char * egroup, const char * rgroup, const char * sgroup, const char * fgroup, int priority, int nice, int size, int vm_size, int resident, int share, int start_time, int pgrp, int session, int nlwp, int tgid, int tty, int processor);
 
-// Delete Program info about previous scan from DB.
+// Delete process info about previous scan from DB.
 int wdb_process_delete(wdb_t * wdb, const char * scan_id);
+
+// Function to restore the 'sys_processes' table for an agent
+int wdb_process_restore(wdb_t * wdb);
 
 // Insert port info tuple. Return 0 on success or -1 on error.
 int wdb_port_insert(wdb_t * wdb, const char * scan_id, const char * scan_time, const char * protocol, const char * local_ip, int local_port, const char * remote_ip, int remote_port, int tx_queue, int rx_queue, int inode, const char * state, int pid, const char * process);
@@ -256,6 +281,9 @@ int wdb_port_save(wdb_t * wdb, const char * scan_id, const char * scan_time, con
 
 // Delete port info about previous scan from DB.
 int wdb_port_delete(wdb_t * wdb, const char * scan_id);
+
+// Function to restore the 'sys_ports' table for an agent
+int wdb_port_restore(wdb_t * wdb);
 
 wdb_t * wdb_init(sqlite3 * db, const char * agent_id);
 

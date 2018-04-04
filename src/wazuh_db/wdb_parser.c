@@ -18,6 +18,7 @@ int wdb_parse(char * input, char * output) {
     char * sql;
     char * next;
     int agent_id;
+    char sagent_id[64];
     wdb_t * wdb;
     cJSON * data;
     char * out;
@@ -63,8 +64,10 @@ int wdb_parse(char * input, char * output) {
             return -1;
         }
 
+        snprintf(sagent_id, sizeof(sagent_id), "%03d", agent_id);
+
         if (wdb = wdb_open_agent2(agent_id), !wdb) {
-            merror("Couldn't open DB for agent '%d'", agent_id);
+            merror("Couldn't open DB for agent '%s'", sagent_id);
             snprintf(output, OS_MAXSTR + 1, "err Couldn't open DB for agent %d", agent_id);
             return -1;
         }
@@ -92,7 +95,12 @@ int wdb_parse(char * input, char * output) {
                 result = -1;
             } else {
                 if (wdb_parse_osinfo(wdb, next, output) == 0){
-                    mdebug2("Stored OS information in DB for agent '%d'", agent_id);
+                    mdebug2("Updated 'sys_osinfo' table for agent '%s'", sagent_id);
+                } else {
+                    merror("Unable to update 'sys_osinfo' table for agent '%s'", sagent_id);
+                    if (wdb_osinfo_restore(wdb) == 0) {
+                        minfo("Restored 'sys_osinfo' table for agent '%s'", sagent_id);
+                    }
                 }
             }
         } else if (strcmp(query, "hardware") == 0) {
@@ -103,7 +111,12 @@ int wdb_parse(char * input, char * output) {
                 result = -1;
             } else {
                 if (wdb_parse_hardware(wdb, next, output) == 0){
-                    mdebug2("Stored HW information in DB for agent '%d'", agent_id);
+                    mdebug2("Updated 'sys_hwinfo' table for agent '%s'", sagent_id);
+                } else {
+                    merror("Unable to update 'sys_hwinfo' table for agent '%s'", sagent_id);
+                    if (wdb_hwinfo_restore(wdb) == 0) {
+                        minfo("Restored 'sys_hwinfo' table for agent '%s'", sagent_id);
+                    }
                 }
             }
         } else if (strcmp(query, "port") == 0) {
@@ -114,7 +127,12 @@ int wdb_parse(char * input, char * output) {
                 result = -1;
             } else {
                 if (wdb_parse_ports(wdb, next, output) == 0){
-                    mdebug2("Stored Port information in DB for agent '%d'", agent_id);
+                    mdebug2("Updated 'sys_ports' table for agent '%s'", sagent_id);
+                } else {
+                    merror("Unable to update 'sys_ports' table for agent '%s'", sagent_id);
+                    if (wdb_port_restore(wdb) == 0) {
+                        minfo("Restored 'sys_ports' table for agent '%s'", sagent_id);
+                    }
                 }
             }
         } else if (strcmp(query, "program") == 0) {
@@ -125,7 +143,12 @@ int wdb_parse(char * input, char * output) {
                 result = -1;
             } else {
                 if (wdb_parse_programs(wdb, next, output) == 0){
-                    mdebug2("Updated 'programs' table in DB for agent '%d'", agent_id);
+                    mdebug2("Updated 'sys_programs' table in DB for agent '%s'", sagent_id);
+                } else {
+                    merror("Unable to update 'sys_programs' table for agent '%s'", sagent_id);
+                    if (wdb_program_restore(wdb) == 0) {
+                        minfo("Restored 'sys_programs' table for agent '%s'", sagent_id);
+                    }
                 }
             }
         } else if (strcmp(query, "process") == 0) {
@@ -136,7 +159,12 @@ int wdb_parse(char * input, char * output) {
                 result = -1;
             } else {
                 if (wdb_parse_processes(wdb, next, output) == 0){
-                    mdebug2("Stored process information in DB for agent '%d'", agent_id);
+                    mdebug2("Updated 'sys_processes' table for agent '%s'", sagent_id);
+                } else {
+                    merror("Unable to update 'sys_processes' table for agent '%s'", sagent_id);
+                    if (wdb_process_restore(wdb) == 0) {
+                        minfo("Restored 'sys_processes' table for agent '%s'", sagent_id);
+                    }
                 }
             }
         } else if (strcmp(query, "sql") == 0) {
@@ -502,7 +530,6 @@ int wdb_parse_osinfo(wdb_t * wdb, char * input, char * output) {
             version = next;
 
         if (result = wdb_osinfo_save(wdb, scan_id, scan_time, hostname, architecture, os_name, os_version, os_codename, os_major, os_minor, os_build, os_platform, sysname, release, version), result < 0) {
-            mdebug1("Cannot save OS information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot save OS information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -636,7 +663,6 @@ int wdb_parse_hardware(wdb_t * wdb, char * input, char * output) {
         ram_free = strtol(next,NULL,10);
 
         if (result = wdb_hardware_save(wdb, scan_id, scan_time, serial, cpu_name, cpu_cores, cpu_mhz, ram_total, ram_free), result < 0) {
-            mdebug1("Cannot save HW information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot save HW information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -860,7 +886,6 @@ int wdb_parse_ports(wdb_t * wdb, char * input, char * output) {
             process = next;
 
         if (result = wdb_port_save(wdb, scan_id, scan_time, protocol, local_ip, local_port, remote_ip, remote_port, tx_queue, rx_queue, inode, state, pid, process), result < 0) {
-            mdebug1("Cannot save Port information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot save Port information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -877,7 +902,6 @@ int wdb_parse_ports(wdb_t * wdb, char * input, char * output) {
             scan_id = next;
 
         if (result = wdb_port_delete(wdb, scan_id), result < 0) {
-            mdebug1("Cannot delete old Port information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot delete old Port information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -1023,7 +1047,6 @@ int wdb_parse_programs(wdb_t * wdb, char * input, char * output) {
             description = next;
 
         if (result = wdb_program_save(wdb, scan_id, scan_time, format, name, vendor, version, architecture, description), result < 0) {
-            mdebug1("Cannot save Program information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot save Program information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -1041,7 +1064,6 @@ int wdb_parse_programs(wdb_t * wdb, char * input, char * output) {
             scan_id = next;
 
         if (result = wdb_program_delete(wdb, scan_id), result < 0) {
-            mdebug1("Cannot delete old Program information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot delete old Program information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -1515,7 +1537,6 @@ int wdb_parse_processes(wdb_t * wdb, char * input, char * output) {
             processor = strtol(next,NULL,10);
 
         if (result = wdb_process_save(wdb, scan_id, scan_time, pid, name, state, ppid, utime, stime, cmd, argvs, euser, ruser, suser, egroup, rgroup, sgroup, fgroup, priority, nice, size, vm_size, resident, share, start_time, pgrp, session, nlwp, tgid, tty, processor), result < 0) {
-            mdebug1("Cannot save Process information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot save Process information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");
@@ -1532,7 +1553,6 @@ int wdb_parse_processes(wdb_t * wdb, char * input, char * output) {
             scan_id = next;
 
         if (result = wdb_process_delete(wdb, scan_id), result < 0) {
-            mdebug1("Cannot delete old Process information.");
             snprintf(output, OS_MAXSTR + 1, "err Cannot delete old Process information.");
         } else {
             snprintf(output, OS_MAXSTR + 1, "ok");

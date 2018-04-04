@@ -38,7 +38,20 @@ static const char * SQL_STMT[] = {
     "INSERT INTO sys_ports (scan_id, scan_time, protocol, local_ip, local_port, remote_ip, remote_port, tx_queue, rx_queue, inode, state, PID, process) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
     "DELETE FROM sys_ports WHERE scan_id != ?;",
     "INSERT INTO sys_processes (scan_id, scan_time, pid, name, state, ppid, utime, stime, cmd, argvs, euser, ruser, suser, egroup, rgroup, sgroup, fgroup, priority, nice, size, vm_size, resident, share, start_time, pgrp, session, nlwp, tgid, tty, processor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    "DELETE FROM sys_processes WHERE scan_id != ?;"
+    "DELETE FROM sys_processes WHERE scan_id != ?;",
+    "DROP TABLE sys_osinfo;",
+    "CREATE TABLE IF NOT EXISTS sys_osinfo (scan_id INTEGER,scan_time TEXT,hostname TEXT,architecture TEXT,os_name TEXT,os_version TEXT,os_codename TEXT,os_major TEXT,os_minor TEXT,os_build TEXT,os_platform TEXT,sysname TEXT,release TEXT,version TEXT,PRIMARY KEY (scan_id, os_name));",
+    "DROP TABLE sys_hwinfo;",
+    "CREATE TABLE IF NOT EXISTS sys_hwinfo (scan_id INTEGER,scan_time TEXT,board_serial TEXT,cpu_name TEXT,cpu_cores INTEGER CHECK (cpu_cores > 0),cpu_mhz REAL CHECK (cpu_mhz > 0),ram_total INTEGER CHECK (ram_total > 0),ram_free INTEGER CHECK (ram_free > 0),PRIMARY KEY (scan_id, board_serial));",
+    "DROP TABLE sys_programs;",
+    "CREATE TABLE IF NOT EXISTS sys_programs (scan_id INTEGER,scan_time TEXT,format TEXT NOT NULL CHECK (format IN ('deb', 'rpm', 'win', 'pkg')),name TEXT,vendor TEXT,version TEXT,architecture TEXT,description TEXT,PRIMARY KEY (scan_id, name, version, architecture));",
+    "CREATE INDEX IF NOT EXISTS programs_id ON sys_programs (scan_id);",
+    "DROP TABLE sys_ports;",
+    "CREATE TABLE IF NOT EXISTS sys_ports (scan_id INTEGER,scan_time TEXT,protocol TEXT,local_ip TEXT,local_port INTEGER CHECK (local_port >= 0),remote_ip TEXT,remote_port INTEGER CHECK (remote_port >= 0),tx_queue INTEGER,rx_queue INTEGER,inode INTEGER,state TEXT,PID INTEGER,process TEXT);",
+    "CREATE INDEX IF NOT EXISTS ports_id ON sys_ports (scan_id);",
+    "DROP TABLE sys_processes;",
+    "CREATE TABLE IF NOT EXISTS sys_processes (scan_id INTEGER,scan_time TEXT,pid TEXT,name TEXT,state TEXT,ppid INTEGER,utime INTEGER,stime INTEGER,cmd TEXT,argvs TEXT,euser TEXT,ruser TEXT,suser TEXT,egroup TEXT,rgroup TEXT,sgroup TEXT,fgroup TEXT,priority INTEGER,nice INTEGER,size INTEGER,vm_size INTEGER,resident INTEGER,share INTEGER,start_time INTEGER,pgrp INTEGER,session INTEGER,nlwp INTEGER,tgid INTEGER,tty INTEGER,processor INTEGER,PRIMARY KEY (scan_id, pid));",
+    "CREATE INDEX IF NOT EXISTS processes_id ON sys_processes (scan_id);"
 };
 
 sqlite3 *wdb_global = NULL;
@@ -220,10 +233,13 @@ int wdb_create_agent_db2(const char * agent_id) {
     fclose(source);
     fclose(dest);
 
-    if (result < 0)
+    if (result < 0) {
+        unlink(path);
         return -1;
+    }
 
     if (chmod(path, 0640) < 0) {
+        unlink(path);
         merror(CHMOD_ERROR, path, errno, strerror(errno));
         return -1;
     }
@@ -756,7 +772,7 @@ int wdb_stmt_cache(wdb_t * wdb, int index) {
 
     if (!wdb->stmt[index]) {
         if (sqlite3_prepare_v2(wdb->db, SQL_STMT[index], -1, wdb->stmt + index, NULL) != SQLITE_OK) {
-            merror("at wdb_stmt_cache(): sqlite3_prepare_v2(): %s", sqlite3_errmsg(wdb->db));
+            mdebug1("at wdb_stmt_cache(): sqlite3_prepare_v2(): %s", sqlite3_errmsg(wdb->db));
             return -1;
         }
     } else if (sqlite3_reset(wdb->stmt[index]) != SQLITE_OK) {
@@ -767,7 +783,7 @@ int wdb_stmt_cache(wdb_t * wdb, int index) {
         sqlite3_finalize(wdb->stmt[index]);
 
         if (sqlite3_prepare_v2(wdb->db, SQL_STMT[index], -1, wdb->stmt + index, NULL) != SQLITE_OK) {
-            merror("at wdb_stmt_cache(): sqlite3_prepare_v2(): %s", sqlite3_errmsg(wdb->db));
+            mdebug1("at wdb_stmt_cache(): sqlite3_prepare_v2(): %s", sqlite3_errmsg(wdb->db));
             return -1;
         }
     }

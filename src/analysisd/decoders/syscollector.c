@@ -23,6 +23,13 @@
 
 #define SYSCOLLECTOR_DIR    "/queue/syscollector"
 
+static int error_program = 0;
+static int prev_program_id = 0;
+static int error_port = 0;
+static int prev_port_id = 0;
+static int error_process = 0;
+static int prev_process_id = 0;
+
 static int sc_send_db(char * msg);
 static int decode_osinfo(char *agent_id, cJSON * logJSON);
 static int decode_hardware(char *agent_id, cJSON * logJSON);
@@ -257,6 +264,13 @@ int decode_port(char *agent_id, cJSON * logJSON) {
 
         snprintf(msg, OS_MAXSTR - 1, "agent %s port save", agent_id);
 
+        if (error_port) {
+            if (scan_id->valueint == prev_port_id)
+                return 0;
+            else
+                error_port = 0;
+        }
+
         if (scan_id) {
             char id[OS_MAXSTR];
             snprintf(id, OS_MAXSTR - 1, "%d", scan_id->valueint);
@@ -350,7 +364,11 @@ int decode_port(char *agent_id, cJSON * logJSON) {
         }
 
         if (sc_send_db(msg) < 0) {
+
+            error_port = 1;
+            prev_port_id = scan_id->valueint;
             return -1;
+
         }
 
     } else {
@@ -368,8 +386,19 @@ int decode_port(char *agent_id, cJSON * logJSON) {
             cJSON * scan_id = cJSON_GetObjectItem(logJSON, "ID");
             snprintf(msg, OS_MAXSTR - 1, "agent %s port del %d", agent_id, scan_id->valueint);
 
+            if (error_port) {
+                if (scan_id->valueint == prev_port_id)
+                    return 0;
+                else
+                    error_port = 0;
+            }
+
             if (sc_send_db(msg) < 0) {
+
+                error_port = 1;
+                prev_port_id = scan_id->valueint;
                 return -1;
+
             }
         } else {
             free(msg);
@@ -484,6 +513,12 @@ int decode_program(char *agent_id, cJSON * logJSON) {
 
         snprintf(msg, OS_MAXSTR - 1, "agent %s program save", agent_id);
 
+        if (error_program) {
+            if (scan_id->valueint == prev_program_id)
+                return 0;
+            else
+                error_program = 0;
+        }
 
         if (scan_id) {
             char id[OS_MAXSTR];
@@ -536,6 +571,9 @@ int decode_program(char *agent_id, cJSON * logJSON) {
         }
 
         if (sc_send_db(msg) < 0) {
+
+            error_program = 1;
+            prev_program_id = scan_id->valueint;
             return -1;
         }
 
@@ -555,7 +593,16 @@ int decode_program(char *agent_id, cJSON * logJSON) {
             cJSON * scan_id = cJSON_GetObjectItem(logJSON, "ID");
             snprintf(msg, OS_MAXSTR - 1, "agent %s program del %d", agent_id, scan_id->valueint);
 
+            if (error_program) {
+                if (scan_id->valueint == prev_program_id)
+                    return 0;
+                else
+                    error_program = 0;
+            }
+
             if (sc_send_db(msg) < 0) {
+                error_program = 1;
+                prev_program_id = scan_id->valueint;
                 return -1;
             }
         } else {
@@ -607,6 +654,13 @@ int decode_process(char *agent_id, cJSON * logJSON) {
         cJSON * processor = cJSON_GetObjectItem(inventory, "processor");
 
         snprintf(msg, OS_MAXSTR - 1, "agent %s process save", agent_id);
+
+        if (error_process) {
+            if (scan_id->valueint == prev_process_id)
+                return 0;
+            else
+                error_process = 0;
+        }
 
         if (scan_id) {
             char id[OS_MAXSTR];
@@ -829,7 +883,11 @@ int decode_process(char *agent_id, cJSON * logJSON) {
         }
 
         if (sc_send_db(msg) < 0) {
+
+            error_process = 1;
+            prev_process_id = scan_id->valueint;
             return -1;
+
         }
 
     } else {
@@ -847,8 +905,19 @@ int decode_process(char *agent_id, cJSON * logJSON) {
             cJSON * scan_id = cJSON_GetObjectItem(logJSON, "ID");
             snprintf(msg, OS_MAXSTR - 1, "agent %s process del %d", agent_id, scan_id->valueint);
 
+            if (error_process) {
+                if (scan_id->valueint == prev_process_id)
+                    return 0;
+                else
+                    error_process = 0;
+            }
+
             if (sc_send_db(msg) < 0) {
+
+                error_process = 1;
+                prev_process_id = scan_id->valueint;
                 return -1;
+
             }
         } else {
             free(msg);
@@ -941,7 +1010,7 @@ int sc_send_db(char * msg) {
             response[length] = '\0';
 
             if (strcmp(response, "ok")) {
-                merror("at sc_send_db(): received: '%s'", response);
+                mdebug1("at sc_send_db(): received: '%s'", response);
                 goto end;
             }
     }

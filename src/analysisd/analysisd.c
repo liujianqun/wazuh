@@ -67,6 +67,8 @@ int __crt_wday;
 struct timespec c_timespec;
 char __shost[512];
 OSDecoderInfo *NULL_Decoder;
+rlim_t nofile;
+int sys_debug_level;
 
 /* execd queue */
 static int execdq = 0;
@@ -129,6 +131,7 @@ int main_analysisd(int argc, char **argv)
     hourly_events = 0;
     hourly_syscheck = 0;
     hourly_firewall = 0;
+    sys_debug_level = getDefine_Int("analysisd", "debug", 0, 2);
 
 #ifdef LIBGEOIP_ENABLED
     geoipdb = NULL;
@@ -189,7 +192,7 @@ int main_analysisd(int argc, char **argv)
      */
     if (debug_level == 0) {
         /* Get debug level */
-        debug_level = getDefine_Int("analysisd", "debug", 0, 2);
+        debug_level = sys_debug_level;
         while (debug_level != 0) {
             nowDebug();
             debug_level--;
@@ -267,7 +270,7 @@ int main_analysisd(int argc, char **argv)
     // Set resource limit for file descriptors
 
     {
-        rlim_t nofile = getDefine_Int("analysisd", "rlimit_nofile", 1024, INT_MAX);
+        nofile = getDefine_Int("analysisd", "rlimit_nofile", 1024, INT_MAX);
         struct rlimit rlimit = { nofile, nofile };
 
         if (setrlimit(RLIMIT_NOFILE, &rlimit) < 0) {

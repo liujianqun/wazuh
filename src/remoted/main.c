@@ -11,6 +11,8 @@
 #include "remoted.h"
 #include <unistd.h>
 
+/* Global variables */
+int pass_empty_keyfile;
 
 /* Prototypes */
 static void help_remoted(void) __attribute__((noreturn));
@@ -137,7 +139,8 @@ int main(int argc, char **argv)
     }
 
     /* Don't exit when client.keys empty (if set) */
-    if (getDefine_Int("remoted", "pass_empty_keyfile", 0, 1)) {
+    pass_empty_keyfile = getDefine_Int("remoted", "pass_empty_keyfile", 0, 1);
+    if (pass_empty_keyfile) {
         OS_PassEmptyKeyfile();
     }
 

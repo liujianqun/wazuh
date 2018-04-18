@@ -40,6 +40,7 @@ static file_sum ** find_group(const char * file, const char * md5, char group[KE
 /* Global vars */
 static group_t **groups;
 static time_t _stime;
+int INTERVAL;
 
 /* For the last message tracking */
 static char pending_queue[MAX_AGENTS][9];
@@ -690,7 +691,7 @@ void *wait_for_msgs(__attribute__((unused)) void *none)
 }
 /* Update shared files */
 void *update_shared_files(__attribute__((unused)) void *none) {
-    const int INTERVAL = getDefine_Int("remoted", "shared_reload", 1, 18000);
+    INTERVAL = getDefine_Int("remoted", "shared_reload", 1, 18000);
 
     while (1) {
         time_t _ctime = time(0);

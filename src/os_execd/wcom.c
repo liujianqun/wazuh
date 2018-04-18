@@ -568,7 +568,7 @@ size_t wcom_getconfig(const char * section, char ** output) {
         } else {
             goto error;
         }
-    } else if (strcmp(section, "client-buffer") == 0){
+    } else if (strcmp(section, "buffer") == 0){
         if (cfg = getBufferConfig(), cfg) {
             *output = strdup("ok");
             json_str = cJSON_PrintUnformatted(cfg);
@@ -656,7 +656,7 @@ size_t wcom_getconfig(const char * section, char ** output) {
         } else {
             goto error;
         }
-    } else if (strcmp(section, "internal_options") == 0){
+    } else if (strcmp(section, "internal") == 0){
         if (cfg = getExecdInternalOptions(), cfg) {
             *output = strdup("ok");
             json_str = cJSON_PrintUnformatted(cfg);
@@ -705,7 +705,7 @@ size_t wcom_getconfig(const char * section, char ** output) {
         } else {
             goto error;
         }
-    } else if (strcmp(section, "internal_options") == 0){
+    } else if (strcmp(section, "internal") == 0){
         if (cfg = getExecdInternalOptions(), cfg) {
             *output = strdup("ok");
             json_str = cJSON_PrintUnformatted(cfg);

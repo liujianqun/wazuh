@@ -273,7 +273,7 @@ cJSON *getAnalysisInternalOptions(void) {
 #endif
 
     cJSON_AddItemToObject(internals,"analysisd",analysisd);
-    cJSON_AddItemToObject(root,"internal_options",internals);
+    cJSON_AddItemToObject(root,"internal",internals);
 
     return root;
 }
